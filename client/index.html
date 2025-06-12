@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game Client</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  </head>
+  <body>
+    <h1>Game Client</h1>
+    <input id="message" placeholder="Type a message" value="17:10" />
+    <button onclick="sendBets()">Bet</button>
+    <ul id="messages"></ul>
+
+    <script>
+      const searchParams = new URLSearchParams(window.location.search);
+      const userId =
+        searchParams.get('userId')?.replace(/\/$/, '') || 'QuickClient';
+      const pass =
+        searchParams.get('pass')?.replace(/\/$/, '') ||
+        'MySuperSecurePassword123';
+
+      const socket = io(`http://localhost:3000`, {
+        transports: ['websocket'],
+        auth: {
+          userId,
+          pass,
+        },
+      });
+
+      socket.on('connect', () => {
+        console.log('Connected to game server');
+      });
+
+      let sessionToken;
+      socket.on('message', (packet) => {
+        console.log('Message from game server:', packet);
+        if (packet.event === 'connected') {
+          sessionToken = packet.data.sessionToken;
+        }
+        if (packet.event === 'message') {
+          const li = document.createElement('li');
+          li.textContent = packet.data.message;
+          document.getElementById('messages').appendChild(li);
+        }
+      });
+
+      function sendBets() {
+        const allBetsString = document.getElementById('message').value;
+        const allBets = allBetsString.split(',');
+        const bets = allBets.map((bet) => {
+          const [value, amount] = bet.split(':');
+          return {
+            val: value,
+            amt: amount,
+          };
+        });
+        const betEvent = { event: 'bet', bets, sessionToken };
+        console.log(`Lukas - send this data`, betEvent);
+        socket.emit('message', betEvent);
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "quick-gaming-test",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "concurrently \"npm run watch:server\" \"npm run serve:client\"",
+    "watch:server": "cd server && npm run watch:server",
+    "serve:client": "cd ./client && python3 -m http.server 8999"
+  },
+  "author": "Lukas Tech Ltd",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

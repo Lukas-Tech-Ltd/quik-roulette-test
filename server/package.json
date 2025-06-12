@@ -1,0 +1,33 @@
+{
+  "name": "quick-gaming-test",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "watch:server": "ts-node-dev src/server.ts",
+    "compile:dev": "cross-env env.NODE_ENV=development ncc build src/server.ts -o ./dist",
+    "compile:staging": "cross-env env.NODE_ENV=staging ncc build src/server.ts -o ./dist",
+    "compile:production": "cross-env env.NODE_ENV=production ncc build src/server.ts -o ./dist"
+  },
+  "author": "Luke Trimby",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "install": "^0.13.0",
+    "npm": "^11.4.1",
+    "socket.io": "^4.8.1",
+    "typed-emitter": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.0.0",
+    "@vercel/ncc": "^0.38.3",
+    "cross-env": "^7.0.3",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
+  }
+}
