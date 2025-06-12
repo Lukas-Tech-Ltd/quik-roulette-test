@@ -1,20 +1,36 @@
 import { BetData } from './bet-schema';
 
-export enum QuickSocketMessageEvent {
+/**
+ * Outgoing
+ */
+
+export enum QuickSocketOutgoingMessageEvent {
   CONNECTED = 'connected',
   MESSAGE = 'message',
-  BET = 'bet',
-  AWARD_WINS = 'award_wins',
+  GAME_STATE = 'state',
 }
 
 export interface SocketConnectedData {
-  sessionToken: string;
+  event: QuickSocketOutgoingMessageEvent.CONNECTED;
+  data: { sessionToken: string };
 }
 
 export interface SocketMessageData {
-  sessionToken: string;
+  event: QuickSocketOutgoingMessageEvent.MESSAGE;
+  data: { message: string };
+}
+
+/**
+ * Incoming
+ */
+
+export enum QuickSocketIncomingMessageEvent {
+  DISCONNECT = 'disconnect',
+  MESSAGE = 'message',
+  BET = 'bet',
 }
 
 export interface SocketBetData {
-  bets: BetData[];
+  event: QuickSocketIncomingMessageEvent.BET;
+  data: { sessionToken: string; bets: BetData[] };
 }

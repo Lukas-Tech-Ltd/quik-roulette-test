@@ -13,14 +13,13 @@ export class QuickGameStateMachine {
   protected states: QuickGameState[];
   protected stateIndex: number;
 
-  constructor(states: QuickGameState[], startIndex: number = 0) {
+  constructor(states: QuickGameState[]) {
     this.states = states;
     this.events = new EventEmitter() as TypedEmitter<StateEvents>;
-
-    this.stateIndex = wrappedIndex(startIndex, this.states.length);
   }
 
-  public init(): void {
+  public init(stateIndex: number = 0): void {
+    this.stateIndex = wrappedIndex(stateIndex, this.states.length);
     const initState = this.currentState();
     this.events.emit(QuickGameStateEvent.ENTER, initState);
   }
@@ -35,7 +34,7 @@ export class QuickGameStateMachine {
     this.events.emit(QuickGameStateEvent.ENTER, enterState);
   }
 
-  protected currentState(): QuickGameState {
+  public currentState(): QuickGameState {
     return this.states[this.stateIndex];
   }
 }

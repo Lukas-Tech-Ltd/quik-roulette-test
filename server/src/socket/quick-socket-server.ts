@@ -1,13 +1,14 @@
 import EventEmitter from 'node:events';
 import TypedEmitter from 'typed-emitter';
 import { randomBytes } from 'crypto';
-import { Server as HttpServer } from 'node:http';
+import type { Server as HttpServer } from 'node:http';
 import type { Server as HTTPSServer } from 'node:https';
-import { Http2SecureServer, Http2Server } from 'node:http2';
+import type { Http2SecureServer, Http2Server } from 'node:http2';
 import { Server as SocketServer, ServerOptions, Socket } from 'socket.io';
 
 import {
-  QuickSocketMessageEvent,
+  QuickSocketIncomingMessageEvent,
+  QuickSocketOutgoingMessageEvent,
   SocketBetData,
   SocketConnectedData,
   SocketMessageData,
@@ -23,9 +24,8 @@ export type TServerInstance =
   | Http2Server;
 
 type SocketServerEvents = {
-  [QuickSocketMessageEvent.CONNECTED]: (data: SocketConnectedData) => void;
-  [QuickSocketMessageEvent.MESSAGE]: (data: SocketMessageData) => void;
-  [QuickSocketMessageEvent.BET]: (data: SocketBetData) => void;
+  [QuickSocketIncomingMessageEvent.MESSAGE]: (data: SocketMessageData) => void;
+  [QuickSocketIncomingMessageEvent.BET]: (data: SocketBetData) => void;
 };
 
 export class QuickSocketServer extends SocketServer {
@@ -63,28 +63,29 @@ export class QuickSocketServer extends SocketServer {
 
     const sessionToken = this.generateSessionToken();
 
-    const userSession = {
+    const userSession: UserSession = {
       id: userId,
       sessionToken,
       socketId: socket.id,
     };
-
     this.connectedUsers.set(socket.id, userSession);
+    console.log('Player connected:', userSession);
 
     socket.on('message', (data) => this.onUserMessage(data, socket));
     socket.on('disconnect', () => this.onUserDisconnected(socket));
 
-    console.log('Player connected:', userSession);
-
-    socket.emit('message', {
-      event: QuickSocketMessageEvent.CONNECTED,
+    const socketConnectedData: SocketConnectedData = {
+      event: QuickSocketOutgoingMessageEvent.CONNECTED,
       data: { sessionToken },
-    });
+    };
+    socket.emit('message', socketConnectedData);
 
-    socket.emit('message', {
-      event: QuickSocketMessageEvent.MESSAGE,
+    const msgData: SocketMessageData = {
+      event: QuickSocketOutgoingMessageEvent.MESSAGE,
       data: { message: `Welcome to Quick Gaming Roulette, ${userId}!` },
-    });
+    };
+
+    socket.emit('message', msgData);
   }
 
   protected onUserMessage(data: any, socket: Socket): void {
@@ -95,11 +96,11 @@ export class QuickSocketServer extends SocketServer {
     }
 
     switch (data.event) {
-      case QuickSocketMessageEvent.BET:
-        this.events.emit(QuickSocketMessageEvent.BET, data);
+      case QuickSocketIncomingMessageEvent.BET:
+        this.events.emit(QuickSocketIncomingMessageEvent.BET, data);
         break;
-      case QuickSocketMessageEvent.MESSAGE:
-        this.events.emit(QuickSocketMessageEvent.MESSAGE, data);
+      case QuickSocketIncomingMessageEvent.MESSAGE:
+        this.events.emit(QuickSocketIncomingMessageEvent.MESSAGE, data);
         break;
       default:
         console.log(`Unknown data`, data);
@@ -112,6 +113,8 @@ export class QuickSocketServer extends SocketServer {
     const user = this.connectedUsers.get(socket.id);
     if (user) {
       this.connectedUsers.delete(socket.id);
+      socket.disconnect();
+      this.events.emit(QuickSocketIncomingMessageEvent.DISCONNECT);
     }
   }
 
@@ -119,8 +122,8 @@ export class QuickSocketServer extends SocketServer {
     socket: Socket,
     message: string = 'Refused'
   ): void {
-    socket.emit(QuickSocketMessageEvent.MESSAGE, {
-      event: QuickSocketMessageEvent.MESSAGE,
+    socket.emit(QuickSocketOutgoingMessageEvent.MESSAGE, {
+      event: QuickSocketOutgoingMessageEvent.MESSAGE,
       data: { message },
     });
     socket.disconnect();

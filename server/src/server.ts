@@ -7,7 +7,11 @@ import { BetResult } from './schema/bet-schema';
 import { QuickSocketServer } from './socket/quick-socket-server';
 import { QuickGameState, QuickGameStateEvent } from './schema/state-schema';
 import { QuickGameStateMachine } from './state/quick-game-state-machine';
-import { QuickSocketMessageEvent, SocketBetData } from './schema/comms-schema';
+import {
+  QuickSocketIncomingMessageEvent,
+  SocketBetData,
+} from './schema/comms-schema';
+import rng from './rng/rng';
 
 class QuikServer {
   protected expressApp: Express;
@@ -59,8 +63,12 @@ class QuikServer {
 
   protected createEventListeners(): void {
     // socket events
-    this.socket.events.on(QuickSocketMessageEvent.BET, (data: SocketBetData) =>
-      this.onPlayerBet(data)
+    this.socket.events.on(QuickSocketIncomingMessageEvent.DISCONNECT, () =>
+      this.onPlayerDisconnected()
+    );
+    this.socket.events.on(
+      QuickSocketIncomingMessageEvent.BET,
+      (data: SocketBetData) => this.onPlayerBet(data)
     );
     // state events
     this.state.events.on(QuickGameStateEvent.ENTER, (state: QuickGameState) =>
@@ -88,9 +96,21 @@ class QuikServer {
     console.log(`[STATE] onExit`, state);
   }
 
+  protected onPlayerDisconnected(): void {
+    console.log(`[PLAYER] Player disconnected, resetting state`);
+    this.state.init();
+  }
+
   protected onPlayerBet(data: SocketBetData): void {
-    console.log(`Lukas - player bet`, data);
+    if (this.state.currentState() !== QuickGameState.IDLE) {
+      return;
+    }
     this.state.nextState();
+
+    const result = rng.generate(0, 36);
+
+    console.log(`[PLAYER] - player bet`, data);
+    console.log(`[PLAYER] - result`, result);
   }
 }
 

@@ -3,11 +3,9 @@ export interface BetData {
   amount: number;
 }
 
-export interface BetRequest {
-  bets: BetData[];
-}
-
 export interface BetResult {
+  result: number;
+  bets: BetData[];
   failedBets: BetData[];
   successfulBets: BetData[];
 }
