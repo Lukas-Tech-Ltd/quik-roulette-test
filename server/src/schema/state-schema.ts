@@ -1,8 +1,7 @@
 export enum QuickGameState {
   IDLE = 'idle',
-  SPINNING = 'spinning',
-  STOPPING = 'stopping',
-  AWARD_WINS = 'award_wins',
+  IN_PLAY = 'in_play',
+  FINISHING = 'finishing',
 }
 
 export enum QuickGameStateEvent {

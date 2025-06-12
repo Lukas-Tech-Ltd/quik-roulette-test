@@ -10,12 +10,17 @@ import {
   QuickSocketIncomingMessageEvent,
   QuickSocketOutgoingMessageEvent,
   SocketBetData,
-  SocketConnectedData,
-  SocketMessageData,
+  SocketConnectedDataPacket,
+  SocketMessageDataPacket,
+  SocketResultDataPacket,
+  SocketResultReadyDataPacket,
+  SocketStateDataPacket,
 } from '../schema/comms-schema';
 import { UserSession } from '../schema/user-schema';
 
 import mockDatabase from '../database/mock-database';
+import { QuickGameState } from '../schema/state-schema';
+import { BetResult } from '../schema/bet-schema';
 
 export type TServerInstance =
   | HttpServer
@@ -24,8 +29,11 @@ export type TServerInstance =
   | Http2Server;
 
 type SocketServerEvents = {
-  [QuickSocketIncomingMessageEvent.MESSAGE]: (data: SocketMessageData) => void;
+  [QuickSocketIncomingMessageEvent.MESSAGE]: (
+    data: SocketMessageDataPacket
+  ) => void;
   [QuickSocketIncomingMessageEvent.BET]: (data: SocketBetData) => void;
+  [QuickSocketIncomingMessageEvent.READY_FOR_RESULT]: () => void;
 };
 
 export class QuickSocketServer extends SocketServer {
@@ -42,6 +50,30 @@ export class QuickSocketServer extends SocketServer {
     this.on('connection', (socket) => this.onUserConnected(socket));
   }
 
+  public broadcastState(state: QuickGameState): void {
+    const resultReadyData: SocketStateDataPacket = {
+      event: QuickSocketOutgoingMessageEvent.STATE,
+      data: { state },
+    };
+    this.emit('message', resultReadyData);
+  }
+
+  public broadcastResultReady(): void {
+    const resultReadyData: SocketResultReadyDataPacket = {
+      event: QuickSocketOutgoingMessageEvent.RESULT_READY,
+      data: { message: 'Result is ready' },
+    };
+    this.emit('message', resultReadyData);
+  }
+
+  public broadcastResult(result: BetResult): void {
+    const resultData: SocketResultDataPacket = {
+      event: QuickSocketOutgoingMessageEvent.RESULT,
+      data: { result },
+    };
+    this.emit('message', resultData);
+  }
+
   protected async onUserConnected(socket: Socket): Promise<void> {
     if (this.connectedUsers.size > 0) {
       this.refuseAndDisconnect(socket, 'This is a single-player only server');
@@ -56,8 +88,7 @@ export class QuickSocketServer extends SocketServer {
     });
 
     if (!isAuth) {
-      socket.emit('message', `Connection refused`);
-      socket.disconnect();
+      this.refuseAndDisconnect(socket, 'Connection refused');
       return Promise.resolve();
     }
 
@@ -74,13 +105,13 @@ export class QuickSocketServer extends SocketServer {
     socket.on('message', (data) => this.onUserMessage(data, socket));
     socket.on('disconnect', () => this.onUserDisconnected(socket));
 
-    const socketConnectedData: SocketConnectedData = {
+    const socketConnectedData: SocketConnectedDataPacket = {
       event: QuickSocketOutgoingMessageEvent.CONNECTED,
       data: { sessionToken },
     };
     socket.emit('message', socketConnectedData);
 
-    const msgData: SocketMessageData = {
+    const msgData: SocketMessageDataPacket = {
       event: QuickSocketOutgoingMessageEvent.MESSAGE,
       data: { message: `Welcome to Quick Gaming Roulette, ${userId}!` },
     };
@@ -102,6 +133,12 @@ export class QuickSocketServer extends SocketServer {
       case QuickSocketIncomingMessageEvent.MESSAGE:
         this.events.emit(QuickSocketIncomingMessageEvent.MESSAGE, data);
         break;
+      case QuickSocketIncomingMessageEvent.READY_FOR_RESULT:
+        this.events.emit(QuickSocketIncomingMessageEvent.READY_FOR_RESULT);
+        break;
+      case QuickSocketIncomingMessageEvent.IDLE:
+        this.events.emit(QuickSocketIncomingMessageEvent.IDLE);
+        break;
       default:
         console.log(`Unknown data`, data);
         this.refuseAndDisconnect(socket);
@@ -122,10 +159,11 @@ export class QuickSocketServer extends SocketServer {
     socket: Socket,
     message: string = 'Refused'
   ): void {
-    socket.emit(QuickSocketOutgoingMessageEvent.MESSAGE, {
+    const msgPacket: SocketMessageDataPacket = {
       event: QuickSocketOutgoingMessageEvent.MESSAGE,
       data: { message },
-    });
+    };
+    socket.emit('message', msgPacket);
     socket.disconnect();
   }
 

@@ -10,20 +10,22 @@ import { QuickGameStateMachine } from './state/quick-game-state-machine';
 import {
   QuickSocketIncomingMessageEvent,
   SocketBetData,
+  SocketReadyResultData,
 } from './schema/comms-schema';
 import rng from './rng/rng';
+import { randomBytes } from 'crypto';
 
 class QuikServer {
   protected expressApp: Express;
   protected http: Server;
-  protected socket: QuickSocketServer;
+  protected io: QuickSocketServer;
   protected state: QuickGameStateMachine;
   protected betRecords: BetResult[];
 
   constructor() {
     this.expressApp = this.createExpressApp();
     this.http = createServer(this.expressApp);
-    this.socket = this.createSocket();
+    this.io = this.createSocket();
     this.createStateMachine();
     this.betRecords = [];
   }
@@ -31,7 +33,7 @@ class QuikServer {
   public init(port: number | string = 3000): void {
     this.http.listen(port, () => console.log(`> Listening on port ${port}`));
     this.createEventListeners();
-    this.socket.init();
+    this.io.init();
     this.state.init();
   }
 
@@ -63,12 +65,18 @@ class QuikServer {
 
   protected createEventListeners(): void {
     // socket events
-    this.socket.events.on(QuickSocketIncomingMessageEvent.DISCONNECT, () =>
+    this.io.events.on(QuickSocketIncomingMessageEvent.DISCONNECT, () =>
       this.onPlayerDisconnected()
     );
-    this.socket.events.on(
+    this.io.events.on(
       QuickSocketIncomingMessageEvent.BET,
       (data: SocketBetData) => this.onPlayerBet(data)
+    );
+    this.io.events.on(QuickSocketIncomingMessageEvent.READY_FOR_RESULT, () =>
+      this.onPlayerReadyForResult()
+    );
+    this.io.events.on(QuickSocketIncomingMessageEvent.IDLE, () =>
+      this.onPlayerIdle()
     );
     // state events
     this.state.events.on(QuickGameStateEvent.ENTER, (state: QuickGameState) =>
@@ -82,14 +90,14 @@ class QuikServer {
   protected createStateMachine(): void {
     this.state = new QuickGameStateMachine([
       QuickGameState.IDLE,
-      QuickGameState.SPINNING,
-      QuickGameState.STOPPING,
-      QuickGameState.AWARD_WINS,
+      QuickGameState.IN_PLAY,
+      QuickGameState.FINISHING,
     ]);
   }
 
   protected onEnterState(state: QuickGameState): void {
     console.log(`[STATE] onEnter`, state);
+    this.io.broadcastState(state);
   }
 
   protected onExitState(state: QuickGameState): void {
@@ -109,8 +117,49 @@ class QuikServer {
 
     const result = rng.generate(0, 36);
 
-    console.log(`[PLAYER] - player bet`, data);
-    console.log(`[PLAYER] - result`, result);
+    const failedBets = data.bets.filter(({ position }) => position !== result);
+    const successfulBets = data.bets
+      .filter(({ position }) => position === result)
+      .map(({ position, amount }) => ({
+        position,
+        amount: amount + amount * 35,
+      }));
+
+    const betResult: BetResult = {
+      id: randomBytes(6).toString('base64url'),
+      result,
+      bets: data.bets,
+      failedBets,
+      successfulBets,
+    };
+
+    this.betRecords.push(betResult);
+
+    console.log(`[PLAYER] onPlayerBet`, betResult);
+
+    this.io.broadcastResultReady();
+  }
+
+  protected onPlayerReadyForResult(): void {
+    if (this.state.currentState() !== QuickGameState.IN_PLAY) {
+      return;
+    }
+    this.state.nextState();
+
+    const result = this.betRecords[this.betRecords.length - 1];
+
+    console.log(`[PLAYER] onPlayerReadyForResult`);
+
+    this.io.broadcastResult(result);
+  }
+
+  protected onPlayerIdle(): void {
+    if (this.state.currentState() !== QuickGameState.FINISHING) {
+      return;
+    }
+    console.log(`[PLAYER] onPlayerIdle`);
+
+    this.state.nextState();
   }
 }
 

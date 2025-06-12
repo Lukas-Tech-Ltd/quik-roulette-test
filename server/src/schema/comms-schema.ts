@@ -1,4 +1,5 @@
-import { BetData } from './bet-schema';
+import { BetData, BetResult } from './bet-schema';
+import { QuickGameState } from './state-schema';
 
 /**
  * Outgoing
@@ -7,17 +8,36 @@ import { BetData } from './bet-schema';
 export enum QuickSocketOutgoingMessageEvent {
   CONNECTED = 'connected',
   MESSAGE = 'message',
-  GAME_STATE = 'state',
+  STATE = 'state',
+  RESULT_READY = 'result_ready',
+  RESULT = 'result',
 }
 
-export interface SocketConnectedData {
+export interface SocketConnectedDataPacket {
   event: QuickSocketOutgoingMessageEvent.CONNECTED;
   data: { sessionToken: string };
 }
 
-export interface SocketMessageData {
+export interface SocketMessageDataPacket {
   event: QuickSocketOutgoingMessageEvent.MESSAGE;
   data: { message: string };
+}
+
+export interface SocketStateDataPacket {
+  event: QuickSocketOutgoingMessageEvent.STATE;
+  data: { state: QuickGameState };
+}
+
+export interface SocketResultReadyDataPacket {
+  event: QuickSocketOutgoingMessageEvent.RESULT_READY;
+  data: { message: string };
+}
+
+export interface SocketResultDataPacket {
+  event: QuickSocketOutgoingMessageEvent.RESULT;
+  data: {
+    result: BetResult;
+  };
 }
 
 /**
@@ -28,9 +48,35 @@ export enum QuickSocketIncomingMessageEvent {
   DISCONNECT = 'disconnect',
   MESSAGE = 'message',
   BET = 'bet',
+  READY_FOR_RESULT = 'ready_for_result',
+  RESULT = 'result',
+  IDLE = 'idle',
 }
 
 export interface SocketBetData {
+  sessionToken: string;
+  bets: BetData[];
+}
+
+export interface SocketBetDataPacket {
   event: QuickSocketIncomingMessageEvent.BET;
-  data: { sessionToken: string; bets: BetData[] };
+  data: SocketBetData;
+}
+
+export interface SocketReadyResultData {
+  sessionToken: string;
+}
+
+export interface SocketReadyResultDataPacket {
+  event: QuickSocketIncomingMessageEvent.READY_FOR_RESULT;
+  data: SocketReadyResultData;
+}
+
+export interface SocketIdleData {
+  sessionToken: string;
+}
+
+export interface SocketIdleDataPacket {
+  event: QuickSocketIncomingMessageEvent.IDLE;
+  data: SocketIdleData;
 }

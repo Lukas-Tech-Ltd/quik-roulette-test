@@ -1,9 +1,10 @@
 export interface BetData {
-  position: string;
+  position: number;
   amount: number;
 }
 
 export interface BetResult {
+  id: string;
   result: number;
   bets: BetData[];
   failedBets: BetData[];
