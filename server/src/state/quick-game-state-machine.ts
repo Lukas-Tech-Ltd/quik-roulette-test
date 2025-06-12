@@ -22,7 +22,7 @@ export class QuickGameStateMachine {
 
   public init(): void {
     const initState = this.currentState();
-    this.events.emit('ENTER', initState);
+    this.events.emit(QuickGameStateEvent.ENTER, initState);
   }
 
   public nextState(): void {

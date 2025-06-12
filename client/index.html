@@ -49,10 +49,10 @@
         const allBetsString = document.getElementById('message').value;
         const allBets = allBetsString.split(',');
         const bets = allBets.map((bet) => {
-          const [value, amount] = bet.split(':');
+          const [position, amount] = bet.split(':');
           return {
-            val: value,
-            amt: amount,
+            position,
+            amount,
           };
         });
         const betEvent = { event: 'bet', bets, sessionToken };

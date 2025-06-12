@@ -1,7 +1,10 @@
+import { BetData } from './bet-schema';
+
 export enum QuickSocketMessageEvent {
   CONNECTED = 'connected',
   MESSAGE = 'message',
   BET = 'bet',
+  AWARD_WINS = 'award_wins',
 }
 
 export interface SocketConnectedData {
@@ -13,8 +16,5 @@ export interface SocketMessageData {
 }
 
 export interface SocketBetData {
-  bets: {
-    value: number;
-    amount: number;
-  };
+  bets: BetData[];
 }

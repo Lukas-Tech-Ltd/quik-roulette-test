@@ -88,7 +88,7 @@ export class QuickSocketServer extends SocketServer {
   }
 
   protected onUserMessage(data: any, socket: Socket): void {
-    const user = this.connectedUsers.get(data?.sessionToken);
+    const user = this.connectedUsers.get(socket.id);
     if (!user) {
       this.refuseAndDisconnect(socket, 'Invalid session');
       return;

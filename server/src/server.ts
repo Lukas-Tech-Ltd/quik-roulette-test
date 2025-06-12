@@ -59,10 +59,16 @@ class QuikServer {
 
   protected createEventListeners(): void {
     // socket events
-    this.socket.events.on(QuickSocketMessageEvent.BET, this.onPlayerBet);
+    this.socket.events.on(QuickSocketMessageEvent.BET, (data: SocketBetData) =>
+      this.onPlayerBet(data)
+    );
     // state events
-    this.state.events.on(QuickGameStateEvent.ENTER, this.onEnterState);
-    this.state.events.on(QuickGameStateEvent.EXIT, this.onExitState);
+    this.state.events.on(QuickGameStateEvent.ENTER, (state: QuickGameState) =>
+      this.onEnterState(state)
+    );
+    this.state.events.on(QuickGameStateEvent.EXIT, (state: QuickGameState) =>
+      this.onExitState(state)
+    );
   }
 
   protected createStateMachine(): void {
@@ -84,6 +90,7 @@ class QuikServer {
 
   protected onPlayerBet(data: SocketBetData): void {
     console.log(`Lukas - player bet`, data);
+    this.state.nextState();
   }
 }
 
