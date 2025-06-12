@@ -125,9 +125,15 @@ class QuikServer {
         amount: amount + amount * 35,
       }));
 
+    const totalWin = successfulBets.reduce(
+      (prev, curr) => (prev += curr.amount),
+      0
+    );
+
     const betResult: BetResult = {
       id: randomBytes(6).toString('base64url'),
       result,
+      totalWin,
       bets: data.bets,
       failedBets,
       successfulBets,

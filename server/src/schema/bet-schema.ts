@@ -6,6 +6,7 @@ export interface BetData {
 export interface BetResult {
   id: string;
   result: number;
+  totalWin: number;
   bets: BetData[];
   failedBets: BetData[];
   successfulBets: BetData[];

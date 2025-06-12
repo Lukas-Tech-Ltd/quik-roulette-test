@@ -57,17 +57,12 @@
           const { result } = packet.data;
           console.log(`[Client] Here is the result`, result);
 
-          const total = result.successfulBets.reduce(
-            (prev, curr) => (prev += curr.amount),
-            0
-          );
-
           const msgs = document.getElementById('messages');
           if (msgs.children.length > 4) {
             msgs.removeChild(msgs.lastChild);
           }
           const li = document.createElement('li');
-          li.textContent = `${result.id}: You won ${total}`;
+          li.textContent = `${result.id}: You won ${result.totalWin}`;
           msgs.prepend(li);
 
           const idleData = {
