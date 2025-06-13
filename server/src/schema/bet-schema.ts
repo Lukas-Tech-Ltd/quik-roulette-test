@@ -4,10 +4,12 @@ export interface BetData {
 }
 
 export interface BetResult {
-  id: string;
+  betId: string;
+  playerId: string;
   result: number;
   totalWin: number;
   bets: BetData[];
   failedBets: BetData[];
   successfulBets: BetData[];
+  createdAt: number;
 }

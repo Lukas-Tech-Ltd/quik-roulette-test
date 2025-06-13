@@ -54,6 +54,7 @@ export enum QuickSocketIncomingMessageEvent {
 }
 
 export interface SocketBetData {
+  id: string;
   sessionToken: string;
   bets: BetData[];
 }

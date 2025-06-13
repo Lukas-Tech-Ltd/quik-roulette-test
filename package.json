@@ -4,9 +4,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "concurrently \"npm run watch:server\" \"npm run serve:client\"",
-    "watch:server": "cd server && npm run watch:server",
-    "serve:client": "cd ./client && python3 -m http.server 8999"
+    "start": "concurrently \"npm run watch:server\" \"npm run watch:client\" \"npm run watch:game\"",
+    "watch:server": "cd ./server && npm run watch:server",
+    "watch:client": "cd ./client && npm run dev",
+    "watch:game": "cd ./game && python3 -m http.server 8999"
   },
   "author": "Lukas Tech Ltd",
   "license": "ISC",

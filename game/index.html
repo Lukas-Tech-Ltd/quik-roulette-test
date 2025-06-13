@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Game Client</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  </head>
+  <body>
+    <h1>Game Client</h1>
+    <input id="message" placeholder="Type a message" value="17:10" />
+    <button onclick="sendBets()">Bet</button>
+    <ul id="messages"></ul>
+
+    <script>
+      const searchParams = new URLSearchParams(window.location.search);
+      const userId =
+        searchParams.get('userId')?.replace(/\/$/, '') || 'LukasTech';
+      const pass =
+        searchParams.get('pass')?.replace(/\/$/, '') ||
+        'MySuperSecurePassword123';
+
+      const socket = io(`http://localhost:3000`, {
+        transports: ['websocket'],
+        auth: {
+          userId,
+          pass,
+        },
+      });
+
+      socket.on('connect', () => {
+        console.log(`[Client] Connected to game server`);
+      });
+
+      let sessionToken;
+      socket.on('message', (packet) => {
+        console.log(`[Client] Message from game server`, packet);
+        if (packet.event === 'connected') {
+          sessionToken = packet.data.sessionToken;
+        }
+
+        if (packet.event === 'message') {
+          const li = document.createElement('li');
+          li.textContent = packet.data.message;
+          document.getElementById('messages').prepend(li);
+        }
+
+        if (packet.event === 'result_ready') {
+          const readyForResultData = {
+            event: 'ready_for_result',
+            sessionToken,
+          };
+          socket.emit('message', readyForResultData);
+        }
+
+        if (packet.event === 'result') {
+          const { result } = packet.data;
+          console.log(`[Client] Here is the result`, result);
+
+          const msgs = document.getElementById('messages');
+          if (msgs.children.length > 4) {
+            msgs.removeChild(msgs.lastChild);
+          }
+          const li = document.createElement('li');
+          const date = new Date(result.createdAt);
+
+          const time = new Intl.DateTimeFormat('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+          }).format(date);
+
+          li.textContent = `${time}: ${result.playerId} won ${result.totalWin}`;
+          msgs.prepend(li);
+
+          const idleData = {
+            event: 'idle',
+            sessionToken,
+          };
+          socket.emit('message', idleData);
+        }
+      });
+
+      function sendBets() {
+        const allBetsString = document.getElementById('message').value;
+        const allBets = allBetsString.split(',');
+        const bets = allBets.map((bet) => {
+          const [position, amount] = bet.split(':');
+          return {
+            position: parseInt(position),
+            amount: parseInt(amount),
+          };
+        });
+        const betEvent = { event: 'bet', bets, sessionToken, id: userId };
+        console.log(`[Client] send this data`, betEvent);
+        socket.emit('message', betEvent);
+      }
+    </script>
+  </body>
+</html>

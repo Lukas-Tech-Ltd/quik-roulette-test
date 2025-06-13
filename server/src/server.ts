@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import express, { Express } from 'express';
 import { createServer, Server } from 'http';
-import { ServerOptions } from 'socket.io';
+import { ServerOptions, Socket } from 'socket.io';
 
 import { BetResult } from './schema/bet-schema';
 import { QuickSocketServer } from './socket/quick-socket-server';
@@ -113,6 +113,7 @@ class QuikServer {
     if (this.state.currentState() !== QuickGameState.IDLE) {
       return;
     }
+
     this.state.nextState();
 
     const result = rng.generate(0, 36);
@@ -131,12 +132,14 @@ class QuikServer {
     );
 
     const betResult: BetResult = {
-      id: randomBytes(6).toString('base64url'),
+      betId: randomBytes(6).toString('base64url'),
+      playerId: data.id,
       result,
       totalWin,
       bets: data.bets,
       failedBets,
       successfulBets,
+      createdAt: Date.now(),
     };
 
     this.betRecords.push(betResult);

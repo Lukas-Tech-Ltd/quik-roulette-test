@@ -1,6 +1,5 @@
 import EventEmitter from 'node:events';
 import TypedEmitter from 'typed-emitter';
-import { randomBytes } from 'crypto';
 import type { Server as HttpServer } from 'node:http';
 import type { Server as HTTPSServer } from 'node:https';
 import type { Http2SecureServer, Http2Server } from 'node:http2';
@@ -16,7 +15,7 @@ import {
   SocketResultReadyDataPacket,
   SocketStateDataPacket,
 } from '../schema/comms-schema';
-import { UserSession } from '../schema/user-schema';
+import { UserSession, UserType } from '../schema/user-schema';
 
 import mockDatabase from '../database/mock-database';
 import { QuickGameState } from '../schema/state-schema';
@@ -38,7 +37,8 @@ type SocketServerEvents = {
 
 export class QuickSocketServer extends SocketServer {
   public readonly events: EventEmitter;
-  protected connectedUsers: Map<string, UserSession>;
+  protected connectedPlayers: Map<string, Partial<UserSession>>;
+  protected connectedSpectators: Map<string, Partial<UserSession>>;
 
   constructor(srv: TServerInstance, opts?: Partial<ServerOptions>) {
     super(srv, opts);
@@ -46,7 +46,8 @@ export class QuickSocketServer extends SocketServer {
   }
 
   public init(): void {
-    this.connectedUsers = new Map();
+    this.connectedPlayers = new Map();
+    this.connectedSpectators = new Map();
     this.on('connection', (socket) => this.onUserConnected(socket));
   }
 
@@ -75,39 +76,36 @@ export class QuickSocketServer extends SocketServer {
   }
 
   protected async onUserConnected(socket: Socket): Promise<void> {
-    if (this.connectedUsers.size > 0) {
-      this.refuseAndDisconnect(socket, 'This is a single-player only server');
-      return;
-    }
-
     const { userId, pass } = socket.handshake.auth;
 
-    const isAuth = await mockDatabase.isAuth({
+    const userSession = await mockDatabase.isAuth({
       id: userId,
       pass: pass,
     });
 
-    if (!isAuth) {
+    if (!userSession.sessionToken) {
       this.refuseAndDisconnect(socket, 'Connection refused');
       return Promise.resolve();
     }
 
-    const sessionToken = this.generateSessionToken();
-
-    const userSession: UserSession = {
-      id: userId,
-      sessionToken,
-      socketId: socket.id,
-    };
-    this.connectedUsers.set(socket.id, userSession);
-    console.log('Player connected:', userSession);
+    if (userSession.type === UserType.PLAYER) {
+      if (this.connectedPlayers.size > 0) {
+        this.refuseAndDisconnect(socket, 'This is a single-player only server');
+        return;
+      }
+      this.connectedPlayers.set(socket.id, userSession);
+      console.log('Player connected:', userSession);
+    } else if (userSession.type === UserType.SPECTATOR) {
+      console.log('Spectator connected:', userSession);
+      this.connectedSpectators.set(socket.id, userSession);
+    }
 
     socket.on('message', (data) => this.onUserMessage(data, socket));
     socket.on('disconnect', () => this.onUserDisconnected(socket));
 
     const socketConnectedData: SocketConnectedDataPacket = {
       event: QuickSocketOutgoingMessageEvent.CONNECTED,
-      data: { sessionToken },
+      data: { sessionToken: userSession.sessionToken },
     };
     socket.emit('message', socketConnectedData);
 
@@ -120,15 +118,15 @@ export class QuickSocketServer extends SocketServer {
   }
 
   protected onUserMessage(data: any, socket: Socket): void {
-    const user = this.connectedUsers.get(socket.id);
-    if (!user) {
-      this.refuseAndDisconnect(socket, 'Invalid session');
+    const user = this.connectedPlayers.get(socket.id);
+    if (!user || user.type === UserType.SPECTATOR) {
+      this.refuseAndDisconnect(socket);
       return;
     }
 
     switch (data.event) {
       case QuickSocketIncomingMessageEvent.BET:
-        this.events.emit(QuickSocketIncomingMessageEvent.BET, data);
+        this.events.emit(QuickSocketIncomingMessageEvent.BET, data, socket);
         break;
       case QuickSocketIncomingMessageEvent.MESSAGE:
         this.events.emit(QuickSocketIncomingMessageEvent.MESSAGE, data);
@@ -147,9 +145,11 @@ export class QuickSocketServer extends SocketServer {
 
   protected onUserDisconnected(socket: Socket): void {
     console.log(`Player disconnected`, socket.id);
-    const user = this.connectedUsers.get(socket.id);
+    const user =
+      this.connectedPlayers.get(socket.id) ||
+      this.connectedSpectators.get(socket.id);
     if (user) {
-      this.connectedUsers.delete(socket.id);
+      this.connectedPlayers.delete(socket.id);
       socket.disconnect();
       this.events.emit(QuickSocketIncomingMessageEvent.DISCONNECT);
     }
@@ -165,9 +165,5 @@ export class QuickSocketServer extends SocketServer {
     };
     socket.emit('message', msgPacket);
     socket.disconnect();
-  }
-
-  protected generateSessionToken(length = 16): string {
-    return randomBytes(length).toString('base64url');
   }
 }
