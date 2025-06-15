@@ -18,10 +18,20 @@ export const tableProps = {
       x: 0.75,
       y: 0.75,
     },
+    speed: {
+      idle: 0.15,
+      spinning: 10,
+    },
+    duration: {
+      start: 1,
+      wait: 5,
+      stop: 20,
+    },
   },
   board: {
     x: 145,
     y: 320,
+    unfocusedY: 540,
     cellHeight: 36,
     cellWidth: 100,
     cellStyle: {

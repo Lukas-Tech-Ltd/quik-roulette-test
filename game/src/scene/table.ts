@@ -1,3 +1,4 @@
+import gsap, { Back } from 'gsap';
 import {
   Container,
   ContainerOptions,
@@ -6,6 +7,7 @@ import {
   Graphics,
   Text,
   TextStyle,
+  Ticker,
 } from 'pixi.js';
 
 import { tableProps } from './table-props';
@@ -13,30 +15,59 @@ import { Wheel } from './wheel';
 
 export enum TableEventName {
   INCREASE_BET = 'place_bets',
+  SPIN_COMPLETE = 'spin_complete',
 }
 
 type TableEvent = {
   [TableEventName.INCREASE_BET]: (betLabel: string) => void;
+  [TableEventName.SPIN_COMPLETE]: () => void;
 };
 
 export class Table extends Container {
   public readonly events: EventEmitter<TableEvent>;
   protected wheel: Wheel;
   protected board: Container;
-  protected cells: Graphics[];
+  protected boardMask: Graphics;
 
   constructor(opts?: Partial<ContainerOptions>) {
     super(opts);
     this.events = new EventEmitter();
     this.wheel = this.addChild(new Wheel({ label: 'Betting-Wheel' }));
     this.board = this.addChild(new Container({ label: 'Betting-Board' }));
-    this.cells = [];
   }
 
-  public async init(): Promise<void> {
-    this.wheel.init();
+  public async init(ticker: Ticker): Promise<void> {
+    this.wheel.init(ticker);
     this.createBettingBoard();
+    this.createMask();
     this.setInteraction(false);
+  }
+
+  public async spinWheel(): Promise<void> {
+    await this.wheel.spin();
+    this.events.emit(TableEventName.SPIN_COMPLETE);
+  }
+
+  public unfocusBoard(): Promise<void> {
+    return new Promise((resolve: () => void) => {
+      gsap.to(this.board, {
+        y: tableProps.board.unfocusedY,
+        duration: 1,
+        ease: Back.easeOut,
+        onComplete: () => resolve(),
+      });
+    });
+  }
+
+  public focusBoard(): Promise<void> {
+    return new Promise((resolve: () => void) => {
+      gsap.to(this.board, {
+        y: tableProps.board.y,
+        duration: 1,
+        ease: Back.easeOut,
+        onComplete: () => resolve(),
+      });
+    });
   }
 
   public setInteraction(enabled: boolean = true): void {
@@ -92,8 +123,6 @@ export class Table extends Container {
         cell.eventMode = 'static';
         cell.cursor = 'pointer';
         cell.on('pointerup', (evt) => this.onCellClicked(evt));
-
-        this.cells.push(cell);
 
         const numText = new Text({
           text: number.toString(),
@@ -172,5 +201,13 @@ export class Table extends Container {
       labelText.y = y + cellH;
       this.board.addChild(labelText);
     }
+  }
+
+  protected createMask(): void {
+    this.boardMask = new Graphics();
+    this.boardMask.rect(0, 260, 500, 550);
+    this.boardMask.fill({ color: 0x00ff00, alpha: 0.6 });
+    this.addChild(this.boardMask);
+    this.board.mask = this.boardMask;
   }
 }

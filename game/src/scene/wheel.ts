@@ -1,22 +1,61 @@
+import gsap, { Circ, Expo } from 'gsap';
 import {
   Container,
   ContainerOptions,
+  EventEmitter,
   Graphics,
   Text,
   TextStyle,
+  Ticker,
 } from 'pixi.js';
 import { tableProps } from './table-props';
 
 export class Wheel extends Container {
-  constructor(opts?: ContainerOptions) {
+  public readonly events: EventEmitter<WheelEvent>;
+  protected speed: number;
+
+  constructor(opts?: Partial<ContainerOptions>) {
     super(opts);
+    this.events = new EventEmitter();
+    this.speed = tableProps.wheel.speed.idle;
   }
 
-  public async init(): Promise<void> {
+  public async init(ticker: Ticker): Promise<void> {
     this.createWheel();
+
+    ticker.add((ticker: Ticker) => this.onUpdate(ticker));
   }
 
-  public createWheel(): void {
+  public spin(): Promise<void> {
+    return new Promise((resolve: () => void) => {
+      const timeline = gsap.timeline();
+
+      timeline.to(this, {
+        speed: tableProps.wheel.speed.spinning,
+        duration: tableProps.wheel.duration.start,
+        ease: Expo.easeIn,
+      });
+
+      timeline.to({}, { duration: tableProps.wheel.duration.wait });
+
+      timeline.to(this, {
+        speed: tableProps.wheel.speed.idle,
+        duration: tableProps.wheel.duration.stop,
+        ease: Circ.easeOut,
+        onComplete: () => resolve(),
+      });
+    });
+  }
+
+  protected setSpeed(speed: number): void {
+    this.speed = speed;
+  }
+
+  protected onUpdate(ticker: Ticker): void {
+    this.rotation += this.speed * (ticker.deltaMS / 1000);
+  }
+
+  protected createWheel(): void {
     const sequence = [
       0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5,
       24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
@@ -40,8 +79,8 @@ export class Wheel extends Container {
     const sliceAngle = (Math.PI * 2) / sequence.length;
 
     const runner = new Graphics();
-    runner.circle(tableProps.wheel.x, tableProps.wheel.y, runnerOuter);
-    runner.circle(tableProps.wheel.x, tableProps.wheel.y, runnerInner);
+    runner.circle(0, 0, runnerOuter);
+    runner.circle(0, 0, runnerInner);
     runner.fill(0x222222);
     this.addChild(runner);
 
@@ -62,56 +101,30 @@ export class Wheel extends Container {
 
       const landing = new Graphics();
       landing.moveTo(
-        tableProps.wheel.x + landingInnerRadius * Math.cos(angleStart),
-        tableProps.wheel.y + landingInnerRadius * Math.sin(angleStart)
+        0 + landingInnerRadius * Math.cos(angleStart),
+        0 + landingInnerRadius * Math.sin(angleStart)
       );
-      landing.arc(
-        tableProps.wheel.x,
-        tableProps.wheel.y,
-        landingOuterRadius,
-        angleStart,
-        angleEnd
-      );
+      landing.arc(0, 0, landingOuterRadius, angleStart, angleEnd);
       landing.lineTo(
-        tableProps.wheel.x + landingInnerRadius * Math.cos(angleEnd),
-        tableProps.wheel.y + landingInnerRadius * Math.sin(angleEnd)
+        0 + landingInnerRadius * Math.cos(angleEnd),
+        0 + landingInnerRadius * Math.sin(angleEnd)
       );
-      landing.arc(
-        tableProps.wheel.x,
-        tableProps.wheel.y,
-        landingInnerRadius,
-        angleEnd,
-        angleStart,
-        true
-      );
+      landing.arc(0, 0, landingInnerRadius, angleEnd, angleStart, true);
       landing.fill(darkColor);
       landing.stroke({ width: 2, color: 0xffffff, alpha: 0.6 });
       this.addChild(landing);
 
       const segment = new Graphics();
       segment.moveTo(
-        tableProps.wheel.x + innerRadius * Math.cos(angleStart),
-        tableProps.wheel.y + innerRadius * Math.sin(angleStart)
+        0 + innerRadius * Math.cos(angleStart),
+        0 + innerRadius * Math.sin(angleStart)
       );
-      segment.arc(
-        tableProps.wheel.x,
-        tableProps.wheel.y,
-        tableProps.wheel.radius,
-        angleStart,
-        angleEnd
-      );
+      segment.arc(0, 0, tableProps.wheel.radius, angleStart, angleEnd);
       segment.lineTo(
-        tableProps.wheel.x + innerRadius * Math.cos(angleEnd),
-        tableProps.wheel.y + innerRadius * Math.sin(angleEnd)
+        0 + innerRadius * Math.cos(angleEnd),
+        0 + innerRadius * Math.sin(angleEnd)
       );
-      segment.arc(
-        tableProps.wheel.x,
-        tableProps.wheel.y,
-        innerRadius,
-        angleEnd,
-        angleStart,
-        true
-      );
+      segment.arc(0, 0, innerRadius, angleEnd, angleStart, true);
       segment.fill(lightColor);
       segment.stroke({ width: 2, color: 0xffffff, alpha: 0.6 });
       this.addChild(segment);
@@ -120,10 +133,12 @@ export class Wheel extends Container {
       label.anchor.set(0.5);
       const midAngle = angleStart + sliceAngle / 2;
       const labelRadius = (tableProps.wheel.radius + innerRadius) / 2;
-      label.x = tableProps.wheel.x + labelRadius * Math.cos(midAngle);
-      label.y = tableProps.wheel.y + labelRadius * Math.sin(midAngle);
+      label.x = 0 + labelRadius * Math.cos(midAngle);
+      label.y = 0 + labelRadius * Math.sin(midAngle);
       label.rotation = midAngle + Math.PI / 2;
       this.addChild(label);
     }
+
+    this.position.set(tableProps.wheel.x, tableProps.wheel.y);
   }
 }

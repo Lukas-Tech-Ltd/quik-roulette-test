@@ -2,10 +2,10 @@ import { Application, ApplicationOptions, Assets } from 'pixi.js';
 
 import { Table, TableEventName } from './scene/table';
 import { UI, UIEventName } from './scene/ui';
-
 import { assetManifest } from '../assets/manifest';
-import './style.css';
 import { Background } from './scene/background';
+
+import './style.css';
 
 export class Game {
   protected pixiApp: Application;
@@ -39,7 +39,7 @@ export class Game {
 
   protected async createScene(): Promise<void> {
     await this.background.init();
-    await this.table.init();
+    await this.table.init(this.pixiApp.ticker);
     await this.ui.init();
 
     this.pixiApp.stage.addChild(this.background);
@@ -50,12 +50,19 @@ export class Game {
       console.log(`Lukas - on INCREASE_BET`);
     });
 
+    this.table.events.on(TableEventName.SPIN_COMPLETE, () => {
+      console.log(`Lukas - on SPIN_COMPLETE`);
+    });
+
     this.ui.events.on(UIEventName.PLACE_BETS, () => {
       console.log(`Lukas - on PLACE_BETS`);
+      this.table.unfocusBoard();
+      this.table.spinWheel();
     });
 
     this.ui.events.on(UIEventName.CLEAR_BETS, () => {
       console.log(`Lukas - on CLEAR_BETS`);
+      this.table.focusBoard();
     });
   }
 
