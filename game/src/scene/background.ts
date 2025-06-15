@@ -7,8 +7,8 @@ export class Background extends Container {
     const carpetTiles = new TilingSprite({
       texture: carpet,
       tileScale: { x: 0.5, y: 0.5 },
-      width: 800,
-      height: 1600,
+      width: 500,
+      height: 1000,
     });
 
     carpetTiles.blendMode = 'multiply';

@@ -14,12 +14,14 @@ import { tableProps } from './table-props';
 import { Wheel } from './wheel';
 
 export enum TableEventName {
-  INCREASE_BET = 'place_bets',
+  ADD_BET = 'add_bet',
+  SPIN_STARTED = 'spin_started',
   SPIN_COMPLETE = 'spin_complete',
 }
 
 type TableEvent = {
-  [TableEventName.INCREASE_BET]: (betLabel: string) => void;
+  [TableEventName.ADD_BET]: (betLabel: string) => void;
+  [TableEventName.SPIN_STARTED]: () => void;
   [TableEventName.SPIN_COMPLETE]: () => void;
 };
 
@@ -40,11 +42,16 @@ export class Table extends Container {
     this.wheel.init(ticker);
     this.createBettingBoard();
     this.createMask();
-    this.setInteraction(false);
+    this.setInteractionEnabled(false);
   }
 
   public async spinWheel(): Promise<void> {
     await this.wheel.spin();
+    this.events.emit(TableEventName.SPIN_STARTED);
+  }
+
+  public async stopWheel(result: number = 0): Promise<void> {
+    await this.wheel.stop(result);
     this.events.emit(TableEventName.SPIN_COMPLETE);
   }
 
@@ -70,17 +77,17 @@ export class Table extends Container {
     });
   }
 
-  public setInteraction(enabled: boolean = true): void {
+  public setInteractionEnabled(enabled: boolean = true): void {
     this.eventMode = enabled ? 'static' : 'none';
   }
 
   protected onCellClicked(event: FederatedPointerEvent): void {
-    this.events.emit(TableEventName.INCREASE_BET, event.target.label);
+    this.events.emit(TableEventName.ADD_BET, event.target.label);
   }
 
   protected createBettingBoard(): void {
     this.board.x = tableProps.board.x;
-    this.board.y = tableProps.board.y;
+    this.board.y = tableProps.board.unfocusedY;
 
     const cellW = tableProps.board.cellWidth;
     const cellH = tableProps.board.cellHeight;
@@ -101,6 +108,7 @@ export class Table extends Container {
     const zeroText = new Text({ text: '0', style: labelStyle });
     zeroText.x = cellW * 1.5 - zeroText.width / 2;
     zeroText.y = -cellH / 2 - zeroText.height / 2;
+    zeroText.eventMode = 'none';
     this.board.addChild(zeroText);
 
     for (let row = 0; row < 12; row++) {
@@ -130,6 +138,7 @@ export class Table extends Container {
         });
         numText.x = col * cellW + cellW / 2 - numText.width / 2;
         numText.y = row * cellH + cellH / 2 - numText.height / 2;
+        numText.eventMode = 'none';
         this.board.addChild(numText);
       }
     }
@@ -149,6 +158,7 @@ export class Table extends Container {
       const labelText = new Text({ text: '2 to 1', style: cellStyle });
       labelText.x = i * cellW + cellW / 2 - labelText.width / 2;
       labelText.y = y + cellH / 2 - labelText.height / 2;
+      labelText.eventMode = 'none';
       this.board.addChild(labelText);
     }
 
@@ -175,6 +185,7 @@ export class Table extends Container {
       labelText.anchor.set(0.5);
       labelText.x = dozenX + smallCellW / 2;
       labelText.y = y + 2 * cellH;
+      labelText.eventMode = 'none';
       this.board.addChild(labelText);
     }
 
@@ -199,6 +210,7 @@ export class Table extends Container {
       labelText.anchor.set(0.5);
       labelText.x = sideBetX + smallCellW / 2;
       labelText.y = y + cellH;
+      labelText.eventMode = 'none';
       this.board.addChild(labelText);
     }
   }

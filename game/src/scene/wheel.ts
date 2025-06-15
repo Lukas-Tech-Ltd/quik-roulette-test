@@ -1,4 +1,4 @@
-import gsap, { Circ, Expo } from 'gsap';
+import gsap, { Expo, Power1 } from 'gsap';
 import {
   Container,
   ContainerOptions,
@@ -13,54 +13,144 @@ import { tableProps } from './table-props';
 export class Wheel extends Container {
   public readonly events: EventEmitter<WheelEvent>;
   protected speed: number;
+  protected ballSpeed: number;
+  protected ball: Container;
+  protected ballGfx: Graphics;
 
   constructor(opts?: Partial<ContainerOptions>) {
     super(opts);
     this.events = new EventEmitter();
     this.speed = tableProps.wheel.speed.idle;
+    this.ballSpeed = 0;
   }
 
   public async init(ticker: Ticker): Promise<void> {
     this.createWheel();
+    this.createBall();
 
     ticker.add((ticker: Ticker) => this.onUpdate(ticker));
   }
 
   public spin(): Promise<void> {
     return new Promise((resolve: () => void) => {
-      const timeline = gsap.timeline();
+      this.ball.visible = false;
+      this.ball.rotation = 0;
+      this.ballGfx.y = 0;
 
-      timeline.to(this, {
+      gsap.to(this, {
         speed: tableProps.wheel.speed.spinning,
         duration: tableProps.wheel.duration.start,
         ease: Expo.easeIn,
+        onComplete: () => resolve(),
       });
 
-      timeline.to({}, { duration: tableProps.wheel.duration.wait });
-
-      timeline.to(this, {
-        speed: tableProps.wheel.speed.idle,
-        duration: tableProps.wheel.duration.stop,
-        ease: Circ.easeOut,
-        onComplete: () => resolve(),
+      gsap.to(this, {
+        delay: 3,
+        ballSpeed: tableProps.wheel.ball.speed,
+        duration: 0.1,
+        onStart: () => {
+          this.ball.visible = true;
+        },
       });
     });
   }
 
-  protected setSpeed(speed: number): void {
-    this.speed = speed;
+  public stop(result: number): Promise<void> {
+    return new Promise((resolve: () => void) => {
+      const angle = this.getBallAngleForResult(result);
+
+      gsap.to(this, {
+        speed: tableProps.wheel.speed.idle,
+        duration: tableProps.wheel.duration.stop,
+        ease: Power1.easeOut,
+        onComplete: () => resolve(),
+      });
+
+      gsap.to(this.ball, {
+        rotation: Math.PI * 4 + angle,
+        delay: tableProps.wheel.duration.stop * 0.6,
+        duration: 1.5,
+        onStart: () => {
+          this.ballSpeed = 0;
+          this.dropBall();
+        },
+      });
+    });
   }
 
   protected onUpdate(ticker: Ticker): void {
-    this.rotation += this.speed * (ticker.deltaMS / 1000);
+    this.rotation -= this.speed * (ticker.deltaMS / 1000);
+    this.ball.rotation += this.ballSpeed * (ticker.deltaMS / 1000);
+    if (this.ball.rotation >= Math.PI * 2) {
+      this.ball.rotation -= Math.PI * 2;
+    }
+  }
+
+  protected getBallAngleForResult(result: number): number {
+    const index = tableProps.wheel.numberSequence.indexOf(result);
+    if (index === 0) {
+      return 0;
+    }
+
+    const sliceAngle = (Math.PI * 2) / tableProps.wheel.numberSequence.length;
+    const angle = sliceAngle * index + sliceAngle / 2;
+
+    return angle;
+  }
+
+  protected dropBall(): Promise<void> {
+    return new Promise((resolve: () => void) => {
+      const tl = gsap.timeline({
+        onComplete: () => resolve(),
+      });
+
+      this.ballGfx.y = tableProps.wheel.ball.startY;
+      const bounces = 8;
+      const totalDuration = 1.5;
+      const intensityY = 20;
+      const intensityX = 90;
+
+      let currentY = 0;
+      let currentX = 0;
+      for (let i = 0; i < bounces; i++) {
+        const bounceHeight = intensityY * Math.pow(0.6, i);
+        const lateralOffset =
+          intensityX * Math.pow(0.6, i) * (i % 2 === 0 ? 1 : -1);
+        const duration = totalDuration / (bounces + i);
+
+        const targetY =
+          currentY + (tableProps.wheel.ball.endY - currentY) / (bounces - i);
+        const targetX =
+          currentX + (0 - currentX) / (bounces - i) + lateralOffset;
+
+        tl.to(this.ballGfx, {
+          y: targetY,
+          x: targetX,
+          duration: duration / 2,
+          ease: 'expo.in',
+        });
+
+        tl.to(this.ballGfx, {
+          y: targetY - bounceHeight,
+          x: targetX - lateralOffset * 0.5,
+          duration: duration / 2,
+          ease: 'expo.out',
+        });
+
+        currentY = targetY;
+        currentX = targetX - lateralOffset * 0.5;
+      }
+
+      tl.to(this.ballGfx, {
+        x: 0,
+        y: tableProps.wheel.ball.endY,
+        duration: 0.2,
+        ease: 'power1.out',
+      });
+    });
   }
 
   protected createWheel(): void {
-    const sequence = [
-      0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5,
-      24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26,
-    ];
-
     const innerRadius = tableProps.wheel.radius * 0.8;
     const landingInnerRadius = tableProps.wheel.radius * 0.6;
     const landingOuterRadius = innerRadius;
@@ -76,7 +166,7 @@ export class Wheel extends Container {
       align: 'center',
     });
 
-    const sliceAngle = (Math.PI * 2) / sequence.length;
+    const sliceAngle = (Math.PI * 2) / tableProps.wheel.numberSequence.length;
 
     const runner = new Graphics();
     runner.circle(0, 0, runnerOuter);
@@ -84,8 +174,8 @@ export class Wheel extends Container {
     runner.fill(0x222222);
     this.addChild(runner);
 
-    for (let i = 0; i < sequence.length; i++) {
-      const num = sequence[i];
+    for (let i = 0; i < tableProps.wheel.numberSequence.length; i++) {
+      const num = tableProps.wheel.numberSequence[i];
       const angleStart = i * sliceAngle - Math.PI / 2;
       const angleEnd = angleStart + sliceAngle;
 
@@ -140,5 +230,16 @@ export class Wheel extends Container {
     }
 
     this.position.set(tableProps.wheel.x, tableProps.wheel.y);
+  }
+
+  protected createBall(): void {
+    this.ball = new Container();
+
+    this.ballGfx = new Graphics();
+    this.ballGfx.circle(0, -228, 8);
+    this.ballGfx.fill(0xffffff);
+    this.ball.addChild(this.ballGfx);
+
+    this.addChild(this.ball);
   }
 }

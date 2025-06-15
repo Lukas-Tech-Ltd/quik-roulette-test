@@ -12,7 +12,7 @@
   "dependencies": {
     "gsap": "^3.13.0",
     "pixi.js": "^8.10.1",
-    "socket.io": "^4.8.1"
+    "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
     "tsc": "^2.0.4",
