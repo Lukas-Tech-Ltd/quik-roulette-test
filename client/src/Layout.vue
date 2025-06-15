@@ -2,7 +2,7 @@
   <div class="layout-container">
     <div class="iframe-container">
       <!-- Placeholder iframe -->
-      <iframe class="game-iframe" src="" frameborder="0" allowfullscreen></iframe>
+      <iframe id="game-iframe" class="game-iframe" src="" frameborder="0" allowfullscreen></iframe>
       <GameClient />
     </div>
 
@@ -21,17 +21,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 
 import { useHistory } from '@/composables/useHistory'
 import GameClient from '@/components/GameClient.vue'
 
 const { history } = useHistory()
 const historyOpen = ref(false)
+const iframe = ref<HTMLIFrameElement>()
 
-function toggleHistory() {
+const toggleHistory = () => {
   historyOpen.value = !historyOpen.value
 }
+
+onMounted(() => {
+  window.addEventListener('load', () => {
+    if (!iframe.value) {
+      iframe.value = document.getElementById('game-iframe') as HTMLIFrameElement
+      if (iframe.value) {
+        iframe.value.src = 'http://localhost:5174'
+      }
+    }
+  })
+})
 </script>
 
 <style scoped>
@@ -56,7 +68,7 @@ function toggleHistory() {
   aspect-ratio: 9 / 16;
   max-width: 100%;
   border: none;
-  background: #000;
+  background: #111;
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
   border-radius: 8px;
 }

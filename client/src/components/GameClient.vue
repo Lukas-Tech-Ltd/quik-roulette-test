@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { useHistory } from '@/composables/useHistory'
 import { getSocket } from '@/socket/socket'
 
