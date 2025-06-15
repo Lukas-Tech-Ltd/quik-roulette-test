@@ -104,6 +104,8 @@ export class Game {
         const { data } = packet;
         if (data.state === 'idle') {
           console.log(`[Client] result`, packet);
+          this.readyState.resultReady = false;
+          this.readyState.spinStarted = false;
           this.table.focusBoard();
           this.table.setInteractionEnabled();
         }
