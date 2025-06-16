@@ -1,10 +1,13 @@
 import gsap, { Back } from 'gsap';
 import {
+  Assets,
   Container,
   ContainerOptions,
   EventEmitter,
   FederatedPointerEvent,
   Graphics,
+  Point,
+  Sprite,
   Text,
   TextStyle,
   Ticker,
@@ -12,6 +15,7 @@ import {
 
 import { tableProps } from './table-props';
 import { Wheel } from './wheel';
+import { BetData } from '../schema/bet-schema';
 
 export enum TableEventName {
   ADD_BET = 'add_bet',
@@ -30,6 +34,7 @@ export class Table extends Container {
   protected wheel: Wheel;
   protected board: Container;
   protected boardMask: Graphics;
+  protected chipContainer: Container;
 
   constructor(opts?: Partial<ContainerOptions>) {
     super(opts);
@@ -55,11 +60,35 @@ export class Table extends Container {
     this.events.emit(TableEventName.SPIN_COMPLETE);
   }
 
+  public async drawBets(currentBets: Map<string, BetData>): Promise<void> {
+    this.clearBets();
+
+    const staggerY = -3;
+    currentBets.forEach((value: BetData) => {
+      let offsetY = 0;
+      for (let i = 0; i < value.amount; i++) {
+        const point = this.getChipXY(value.position);
+
+        const chipTexture = Assets.get('chip');
+        const chipSprite = new Sprite(chipTexture);
+        chipSprite.scale.set(0.65);
+        chipSprite.position.set(point.x, point.y + offsetY);
+        chipSprite.eventMode = 'none';
+        this.chipContainer.addChild(chipSprite);
+
+        offsetY += staggerY;
+      }
+    });
+  }
+
+  public clearBets(): void {
+    this.chipContainer.removeChildren();
+  }
+
   public unfocusBoard(): Promise<void> {
     return new Promise((resolve: () => void) => {
       gsap.to(this.board, {
         y: tableProps.board.unfocusedY,
-        duration: 1,
         ease: Back.easeOut,
         onComplete: () => resolve(),
       });
@@ -70,7 +99,6 @@ export class Table extends Container {
     return new Promise((resolve: () => void) => {
       gsap.to(this.board, {
         y: tableProps.board.y,
-        duration: 1,
         ease: Back.easeOut,
         onComplete: () => resolve(),
       });
@@ -83,6 +111,78 @@ export class Table extends Container {
 
   protected onCellClicked(event: FederatedPointerEvent): void {
     this.events.emit(TableEventName.ADD_BET, event.target.label);
+  }
+
+  protected getChipXY(position: string): Point {
+    let x = 0,
+      y = 0;
+    if (/\D/.test(position)) {
+      switch (position) {
+        case '1st12':
+          x = -45;
+          y = 10;
+          break;
+        case '2nd12':
+          x = -45;
+          y = 150;
+          break;
+        case '3rd12':
+          x = -45;
+          y = 300;
+          break;
+        case '1to18':
+          x = -90;
+          y = 10;
+          break;
+        case 'EVEN':
+          x = -90;
+          y = 85;
+          break;
+        case 'RED':
+          x = -90;
+          y = 150;
+          break;
+        case 'BLACK':
+          x = -90;
+          y = 215;
+          break;
+        case 'ODD':
+          x = -90;
+          y = 290;
+          break;
+        case '19to36':
+          x = -90;
+          y = 365;
+          break;
+        case '2to1_0':
+          x = 0;
+          y = 438;
+          break;
+        case '2to1_1':
+          x = 100;
+          y = 438;
+          break;
+        case '2to1_2':
+          x = 200;
+          y = 438;
+          break;
+      }
+    } else {
+      let col, row;
+      const pos = parseInt(position);
+      if (pos === 0) {
+        col = 1;
+        row = -1;
+      } else {
+        col = (pos - 1) % 3;
+        row = Math.floor((pos - 1) / 3);
+      }
+
+      x = col * tableProps.board.cellWidth;
+      y = row * tableProps.board.cellHeight;
+    }
+
+    return new Point(x, y);
   }
 
   protected createBettingBoard(): void {
@@ -213,6 +313,10 @@ export class Table extends Container {
       labelText.eventMode = 'none';
       this.board.addChild(labelText);
     }
+
+    this.chipContainer = new Container();
+    this.board.addChild(this.chipContainer);
+    this.chipContainer.eventMode = 'none';
   }
 
   protected createMask(): void {

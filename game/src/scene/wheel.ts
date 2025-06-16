@@ -120,8 +120,7 @@ export class Wheel extends Container {
 
         const targetY =
           currentY + (tableProps.wheel.ball.endY - currentY) / (bounces - i);
-        const targetX =
-          currentX + (0 - currentX) / (bounces - i) + lateralOffset;
+        const targetX = currentX + -currentX / (bounces - i) + lateralOffset;
 
         tl.to(this.ballGfx, {
           y: targetY,
@@ -191,13 +190,13 @@ export class Wheel extends Container {
 
       const landing = new Graphics();
       landing.moveTo(
-        0 + landingInnerRadius * Math.cos(angleStart),
-        0 + landingInnerRadius * Math.sin(angleStart)
+        landingInnerRadius * Math.cos(angleStart),
+        landingInnerRadius * Math.sin(angleStart)
       );
       landing.arc(0, 0, landingOuterRadius, angleStart, angleEnd);
       landing.lineTo(
-        0 + landingInnerRadius * Math.cos(angleEnd),
-        0 + landingInnerRadius * Math.sin(angleEnd)
+        landingInnerRadius * Math.cos(angleEnd),
+        landingInnerRadius * Math.sin(angleEnd)
       );
       landing.arc(0, 0, landingInnerRadius, angleEnd, angleStart, true);
       landing.fill(darkColor);
@@ -206,13 +205,13 @@ export class Wheel extends Container {
 
       const segment = new Graphics();
       segment.moveTo(
-        0 + innerRadius * Math.cos(angleStart),
-        0 + innerRadius * Math.sin(angleStart)
+        innerRadius * Math.cos(angleStart),
+        innerRadius * Math.sin(angleStart)
       );
       segment.arc(0, 0, tableProps.wheel.radius, angleStart, angleEnd);
       segment.lineTo(
-        0 + innerRadius * Math.cos(angleEnd),
-        0 + innerRadius * Math.sin(angleEnd)
+        innerRadius * Math.cos(angleEnd),
+        innerRadius * Math.sin(angleEnd)
       );
       segment.arc(0, 0, innerRadius, angleEnd, angleStart, true);
       segment.fill(lightColor);
@@ -223,8 +222,8 @@ export class Wheel extends Container {
       label.anchor.set(0.5);
       const midAngle = angleStart + sliceAngle / 2;
       const labelRadius = (tableProps.wheel.radius + innerRadius) / 2;
-      label.x = 0 + labelRadius * Math.cos(midAngle);
-      label.y = 0 + labelRadius * Math.sin(midAngle);
+      label.x = labelRadius * Math.cos(midAngle);
+      label.y = labelRadius * Math.sin(midAngle);
       label.rotation = midAngle + Math.PI / 2;
       this.addChild(label);
     }
@@ -239,6 +238,10 @@ export class Wheel extends Container {
     this.ballGfx.circle(0, -228, 8);
     this.ballGfx.fill(0xffffff);
     this.ball.addChild(this.ballGfx);
+
+    this.ball.visible = false;
+    this.ball.rotation = 0;
+    this.ballGfx.y = 0;
 
     this.addChild(this.ball);
   }

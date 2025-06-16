@@ -12,7 +12,6 @@ import {
   SocketConnectedDataPacket,
   SocketMessageDataPacket,
   SocketResultDataPacket,
-  SocketResultReadyDataPacket,
   SocketStateDataPacket,
 } from '../schema/comms-schema';
 import { UserSession, UserType } from '../schema/user-schema';
@@ -32,7 +31,7 @@ type SocketServerEvents = {
     data: SocketMessageDataPacket
   ) => void;
   [QuickSocketIncomingMessageEvent.BET]: (data: SocketBetData) => void;
-  [QuickSocketIncomingMessageEvent.READY_FOR_RESULT]: () => void;
+  [QuickSocketIncomingMessageEvent.READY_FOR_RESULT]: (socket: Socket) => void;
 };
 
 export class QuickSocketServer extends SocketServer {
@@ -55,14 +54,6 @@ export class QuickSocketServer extends SocketServer {
     const resultReadyData: SocketStateDataPacket = {
       event: QuickSocketOutgoingMessageEvent.STATE,
       data: { state },
-    };
-    this.emit('message', resultReadyData);
-  }
-
-  public broadcastResultReady(): void {
-    const resultReadyData: SocketResultReadyDataPacket = {
-      event: QuickSocketOutgoingMessageEvent.RESULT_READY,
-      data: { message: 'Result is ready' },
     };
     this.emit('message', resultReadyData);
   }
@@ -132,7 +123,10 @@ export class QuickSocketServer extends SocketServer {
         this.events.emit(QuickSocketIncomingMessageEvent.MESSAGE, data);
         break;
       case QuickSocketIncomingMessageEvent.READY_FOR_RESULT:
-        this.events.emit(QuickSocketIncomingMessageEvent.READY_FOR_RESULT);
+        this.events.emit(
+          QuickSocketIncomingMessageEvent.READY_FOR_RESULT,
+          socket
+        );
         break;
       case QuickSocketIncomingMessageEvent.IDLE:
         this.events.emit(QuickSocketIncomingMessageEvent.IDLE);

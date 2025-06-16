@@ -1,13 +1,15 @@
+import gsap from 'gsap';
 import { Application, ApplicationOptions, Assets } from 'pixi.js';
+import { io, Socket } from 'socket.io-client';
 
 import { Table, TableEventName } from './scene/table';
 import { UI, UIEventName } from './scene/ui';
 import { assetManifest } from '../assets/manifest';
 import { Background } from './scene/background';
+import { BetData } from './schema/bet-schema';
+import { tableProps } from './scene/table-props';
 
 import './style.css';
-import { io, Socket } from 'socket.io-client';
-import { BetData } from './schema/bet-schema';
 
 export class Game {
   protected pixiApp: Application;
@@ -79,34 +81,45 @@ export class Game {
 
   protected createEventHandlers(): void {
     this.socket.on('message', (packet) => {
-      console.log(`[Client] Message from game server`, packet);
+      // console.log(`[Game] Message from game server`, packet);
       if (packet.event === 'connected') {
         this.sessionToken = packet.data.sessionToken;
       }
 
       if (packet.event === 'message') {
-        console.log(`[Client] message`, packet);
+        console.log(`[Game] message`, packet);
       }
 
       if (packet.event === 'result_ready') {
-        console.log(`[Client] result_ready`, packet);
         this.readyState.resultReady = true;
         this.checkReadyAndSendForResult();
       }
 
       if (packet.event === 'result') {
-        console.log(`[Client] result`, packet);
-        const { result } = packet.data;
-        this.table.stopWheel(result.result);
+        if (this.readyState.resultReady && this.readyState.spinStarted) {
+          const { result } = packet.data;
+          void this.table.stopWheel(result.result);
+          gsap.delayedCall(tableProps.wheel.duration.stop * 0.8, async () => {
+            this.readyState.spinStarted = false;
+            if (result.totalWin > 0) {
+              void this.table.focusBoard();
+              await this.ui.showPositiveinDisplay(result.totalWin);
+            } else {
+              void this.table.focusBoard();
+              await this.ui.showNegativeWinDisplay();
+            }
+            this.table.clearBets();
+          });
+        }
       }
 
       if (packet.event === 'state') {
         const { data } = packet;
         if (data.state === 'idle') {
-          console.log(`[Client] result`, packet);
           this.readyState.resultReady = false;
           this.readyState.spinStarted = false;
           this.table.focusBoard();
+          this.table.clearBets();
           this.table.setInteractionEnabled();
         }
       }
@@ -122,16 +135,15 @@ export class Game {
           amount: 1,
         });
       }
+      this.table.drawBets(this.currentBets);
     });
 
     this.table.events.on(TableEventName.SPIN_STARTED, () => {
-      console.log(`Lukas - on SPIN_STARTED`);
       this.readyState.spinStarted = true;
       this.checkReadyAndSendForResult();
     });
 
     this.table.events.on(TableEventName.SPIN_COMPLETE, () => {
-      console.log(`Lukas - on SPIN_COMPLETE`);
       const idleData = {
         event: 'idle',
         sessionToken: this.sessionToken,
@@ -144,7 +156,7 @@ export class Game {
         this.table.unfocusBoard();
         this.table.setInteractionEnabled(false);
 
-        const bets = [...this.currentBets.entries()];
+        const bets = [...this.currentBets.values()];
         const betEventData = {
           event: 'bet',
           bets,
@@ -152,14 +164,16 @@ export class Game {
           id: this.userId,
         };
 
-        console.log(`[Client] send this data`, betEventData);
+        console.log(`[Game] send this data`, betEventData);
         this.socket.emit('message', betEventData);
         this.table.spinWheel();
+        this.currentBets = new Map();
       }
     });
 
     this.ui.events.on(UIEventName.CLEAR_BETS, () => {
-      console.log(`Lukas - on CLEAR_BETS`);
+      this.currentBets = new Map();
+      this.table.clearBets();
       this.table.focusBoard();
     });
   }

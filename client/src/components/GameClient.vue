@@ -5,7 +5,6 @@ import { getSocket } from '@/socket/socket'
 
 const { addToHistory } = useHistory()
 const socket = getSocket()
-const lastResult = ref()
 
 const getTime = (date: Date): string => {
   return new Intl.DateTimeFormat('en-GB', {
@@ -26,16 +25,13 @@ onMounted(() => {
     const { event, data } = packet
 
     if (event === 'result') {
-      console.log('[Client] Message:', packet)
+      console.log('[Client] Result:', packet)
       const { result } = data
-      lastResult.value = result
-    } else if (event === 'state' && data.state === 'idle') {
-      if (lastResult.value) {
-        const time = getTime(new Date(lastResult.value.createdAt))
-        addToHistory(`${time}: Result: ${lastResult.value.result}`)
-        if (lastResult.value.totalWin > 0) {
-          addToHistory(`${time}: ${lastResult.value.playerId} won ${lastResult.value.totalWin}!`)
-        }
+
+      const time = getTime(new Date(result.createdAt))
+      addToHistory(`${time}: Result: ${result.result}`)
+      if (result.totalWin > 0) {
+        addToHistory(`${time}: ${result.playerId} won ${result.totalWin}!`)
       }
     }
   })

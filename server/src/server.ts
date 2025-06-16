@@ -1,4 +1,6 @@
 import dotenv from 'dotenv';
+import rng from './rng/rng';
+import { randomBytes } from 'crypto';
 import express, { Express } from 'express';
 import { createServer, Server } from 'http';
 import { ServerOptions, Socket } from 'socket.io';
@@ -9,11 +11,12 @@ import { QuickGameState, QuickGameStateEvent } from './schema/state-schema';
 import { QuickGameStateMachine } from './state/quick-game-state-machine';
 import {
   QuickSocketIncomingMessageEvent,
+  QuickSocketOutgoingMessageEvent,
   SocketBetData,
-  SocketReadyResultData,
+  SocketResultDataPacket,
+  SocketResultReadyDataPacket,
 } from './schema/comms-schema';
-import rng from './rng/rng';
-import { randomBytes } from 'crypto';
+import { getPayoutMultiplier, isWinningBet } from './utils/bet';
 
 class QuikServer {
   protected expressApp: Express;
@@ -70,10 +73,11 @@ class QuikServer {
     );
     this.io.events.on(
       QuickSocketIncomingMessageEvent.BET,
-      (data: SocketBetData) => this.onPlayerBet(data)
+      (data: SocketBetData, socket: Socket) => this.onPlayerBet(data, socket)
     );
-    this.io.events.on(QuickSocketIncomingMessageEvent.READY_FOR_RESULT, () =>
-      this.onPlayerReadyForResult()
+    this.io.events.on(
+      QuickSocketIncomingMessageEvent.READY_FOR_RESULT,
+      (socket: Socket) => this.onPlayerReadyForResult(socket)
     );
     this.io.events.on(QuickSocketIncomingMessageEvent.IDLE, () =>
       this.onPlayerIdle()
@@ -81,9 +85,6 @@ class QuikServer {
     // state events
     this.state.events.on(QuickGameStateEvent.ENTER, (state: QuickGameState) =>
       this.onEnterState(state)
-    );
-    this.state.events.on(QuickGameStateEvent.EXIT, (state: QuickGameState) =>
-      this.onExitState(state)
     );
   }
 
@@ -96,12 +97,7 @@ class QuikServer {
   }
 
   protected onEnterState(state: QuickGameState): void {
-    console.log(`[STATE] onEnter`, state);
     this.io.broadcastState(state);
-  }
-
-  protected onExitState(state: QuickGameState): void {
-    console.log(`[STATE] onExit`, state);
   }
 
   protected onPlayerDisconnected(): void {
@@ -109,7 +105,7 @@ class QuikServer {
     this.state.init();
   }
 
-  protected onPlayerBet(data: SocketBetData): void {
+  protected onPlayerBet(data: SocketBetData, socket: Socket): void {
     if (this.state.currentState() !== QuickGameState.IDLE) {
       return;
     }
@@ -118,18 +114,18 @@ class QuikServer {
 
     const result = rng.generate(0, 36);
 
-    const failedBets = data.bets.filter(({ position }) => position !== result);
     const successfulBets = data.bets
-      .filter(({ position }) => position === result)
+      .filter(({ position }) => isWinningBet(position, result))
       .map(({ position, amount }) => ({
         position,
-        amount: amount + amount * 35,
+        amount: amount + amount * getPayoutMultiplier(position),
       }));
 
-    const totalWin = successfulBets.reduce(
-      (prev, curr) => (prev += curr.amount),
-      0
+    const failedBets = data.bets.filter(
+      ({ position }) => !isWinningBet(position, result)
     );
+
+    const totalWin = successfulBets.reduce((sum, bet) => sum + bet.amount, 0);
 
     const betResult: BetResult = {
       betId: randomBytes(6).toString('base64url'),
@@ -144,12 +140,16 @@ class QuikServer {
 
     this.betRecords.push(betResult);
 
-    console.log(`[PLAYER] onPlayerBet`, betResult);
+    console.log(`[PLAYER] Player bet`, betResult);
 
-    this.io.broadcastResultReady();
+    const resultReadyData: SocketResultReadyDataPacket = {
+      event: QuickSocketOutgoingMessageEvent.RESULT_READY,
+      data: { message: 'Result is ready' },
+    };
+    socket.emit('message', resultReadyData);
   }
 
-  protected onPlayerReadyForResult(): void {
+  protected onPlayerReadyForResult(socket: Socket): void {
     if (this.state.currentState() !== QuickGameState.IN_PLAY) {
       return;
     }
@@ -157,18 +157,24 @@ class QuikServer {
 
     const result = this.betRecords[this.betRecords.length - 1];
 
-    console.log(`[PLAYER] onPlayerReadyForResult`);
+    const resultData: SocketResultDataPacket = {
+      event: QuickSocketOutgoingMessageEvent.RESULT,
+      data: { result },
+    };
 
-    this.io.broadcastResult(result);
+    socket.emit('message', resultData);
   }
 
   protected onPlayerIdle(): void {
     if (this.state.currentState() !== QuickGameState.FINISHING) {
       return;
     }
-    console.log(`[PLAYER] onPlayerIdle`);
 
     this.state.nextState();
+
+    const result = this.betRecords[this.betRecords.length - 1];
+
+    this.io.broadcastResult(result);
   }
 }
 

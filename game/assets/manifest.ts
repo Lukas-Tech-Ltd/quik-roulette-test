@@ -9,6 +9,10 @@ export const assetManifest: AssetsManifest = {
           alias: 'carpet',
           src: 'carpet.webp',
         },
+        {
+          alias: 'chip',
+          src: 'chip.png',
+        },
       ],
     },
   ],

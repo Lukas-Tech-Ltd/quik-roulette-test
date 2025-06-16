@@ -5,7 +5,7 @@ const history = ref<string[]>([])
 export function useHistory() {
   function addToHistory(message: string) {
     history.value.unshift(message)
-    if (history.value.length > 50) {
+    if (history.value.length > 10) {
       history.value.pop()
     }
   }

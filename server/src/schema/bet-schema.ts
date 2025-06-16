@@ -1,5 +1,5 @@
 export interface BetData {
-  position: number;
+  position: string;
   amount: number;
 }
 
